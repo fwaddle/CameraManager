@@ -53,6 +53,7 @@
 		454C1F5019E82E2500C81915 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/LaunchScreen.xib; sourceTree = "<group>"; };
 		454C1F6619E8316A00C81915 /* CameraManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
 		45A23C171A656BDC00FB48F3 /* ImageViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ImageViewController.swift; sourceTree = "<group>"; };
+		B2D119092BD6439C0090BEAB /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		D71DE8811AD677A7001E62F1 /* CameraManager.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = CameraManager.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D71DE8841AD677A7001E62F1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D71DE8851AD677A7001E62F1 /* CameraManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CameraManager.h; sourceTree = "<group>"; };
@@ -80,6 +81,7 @@
 		454C1F3819E82E2500C81915 = {
 			isa = PBXGroup;
 			children = (
+				B2D119092BD6439C0090BEAB /* PrivacyInfo.xcprivacy */,
 				454C1F4319E82E2500C81915 /* Example App */,
 				D71DE8821AD677A7001E62F1 /* Sources */,
 				454C1F4219E82E2500C81915 /* Products */,
