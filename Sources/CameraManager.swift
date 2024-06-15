@@ -563,34 +563,8 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
         return imageMetadata
     }
     
-    fileprivate func _saveImageToLibrary(atFileURL filePath: URL, _ imageCompletion: @escaping (CaptureResult) -> Void) {
-        let location = locationManager?.latestLocation
-        let date = Date()
-        
-        library?.save(imageAtURL: filePath, albumName: imageAlbumName, date: date, location: location) { asset in
-            
-            guard let _ = asset else {
-                return imageCompletion(.failure(CaptureError.assetNotSaved))
-            }
-        }
-    }
-    
-    /**
-     Captures still image from currently running capture session.
-     
-     :param: imageCompletion Completion block containing the captured imageData
-     */
-    @available(*, deprecated)
-    open func capturePictureDataWithCompletion(_ imageCompletion: @escaping (Data?, NSError?) -> Void) {
-        func completion(_ result: CaptureResult) {
-            switch result {
-                case let .success(content):
-                    imageCompletion(content.asData, nil)
-                case .failure:
-                    imageCompletion(nil, NSError())
-            }
-        }
-        capturePictureDataWithCompletion(completion)
+    fileprivate func _saveImageToLibrary(image: UIImage) {
+      UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil);
     }
     
     /**
