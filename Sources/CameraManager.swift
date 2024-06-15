@@ -1775,8 +1775,6 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
     fileprivate func _updateIlluminationMode(_ mode: CameraFlashMode) {
         if cameraOutputMode != .stillImage {
             _updateTorch(mode)
-        } else {
-            _updateFlash(mode)
         }
     }
     
@@ -1798,24 +1796,7 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
             }
         }
     }
-    
-    fileprivate func _updateFlash(_ flashMode: CameraFlashMode) {
-        captureSession?.beginConfiguration()
-        defer { captureSession?.commitConfiguration() }
-        for captureDevice in AVCaptureDevice.videoDevices {
-            guard let avFlashMode = AVCaptureDevice.FlashMode(rawValue: flashMode.rawValue) else { continue }
-            if captureDevice.isFlashModeSupported(avFlashMode) {
-                do {
-                    try captureDevice.lockForConfiguration()
-                    captureDevice.flashMode = avFlashMode
-                    captureDevice.unlockForConfiguration()
-                } catch {
-                    return
-                }
-            }
-        }
-    }
-    
+
     fileprivate func _performShutterAnimation(_ completion: (() -> Void)?) {
         if let validPreviewLayer = previewLayer {
             DispatchQueue.main.async {
