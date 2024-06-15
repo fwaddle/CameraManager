@@ -1845,10 +1845,10 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
 
 private extension AVCaptureDevice {
     static var videoDevices: [AVCaptureDevice] {
-        return AVCaptureDevice.devices(for: AVMediaType.video)
-    }
-}
-
+      let captureSession = AVCaptureDevice.DiscoverySession (deviceTypes: [.builtInWideAngleCamera],
+                                                             mediaType: AVMediaType.video,
+                                                             position: .unspecified)
+      return captureSession.devices
     }
 }
 
