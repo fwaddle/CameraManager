@@ -108,7 +108,7 @@ public enum CaptureError: Error {
 }
 
 /// Class for handling iDevices custom camera usage
-open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, UIGestureRecognizerDelegate {
+open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapturePhotoCaptureDelegate, UIGestureRecognizerDelegate {
     // MARK: - Public properties
     
     // Property for custom image album name.
@@ -355,7 +355,7 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, UIGest
         AVCaptureDevice.default(for: AVMediaType.audio)
     }()
     
-    fileprivate var stillImageOutput: AVCaptureStillImageOutput?
+    fileprivate var stillImageOutput: AVCapturePhotoOutput?
     fileprivate var movieOutput: AVCaptureMovieFileOutput?
     fileprivate var previewLayer: AVCaptureVideoPreviewLayer?
     fileprivate var library: PHPhotoLibrary?
@@ -366,7 +366,10 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, UIGest
     fileprivate var zoomScale = CGFloat(1.0)
     fileprivate var beginZoomScale = CGFloat(1.0)
     fileprivate var maxZoomScale = CGFloat(1.0)
-    
+
+    fileprivate var _imageCompletion: ((_ result: CaptureResult) -> Void)?
+
+
     fileprivate func _tempFilePath() -> URL {
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("tempMovie\(Date().timeIntervalSince1970)").appendingPathExtension("mp4")
         return tempURL
@@ -502,89 +505,7 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, UIGest
         movieOutput = nil
         animateCameraDeviceChange = oldAnimationValue
     }
-    
-    /**
-     Captures still image from currently running capture session.
-     
-     :param: imageCompletion Completion block containing the captured UIImage
-     */
-    @available(*, deprecated)
-    open func capturePictureWithCompletion(_ imageCompletion: @escaping (UIImage?, NSError?) -> Void) {
-        func completion(_ result: CaptureResult) {
-            switch result {
-                case let .success(content):
-                    imageCompletion(content.asImage, nil)
-                case .failure:
-                    imageCompletion(nil, NSError())
-            }
-        }
         
-        capturePictureWithCompletion(completion)
-    }
-    
-    /**
-     Captures still image from currently running capture session.
-     
-     :param: imageCompletion Completion block containing the captured UIImage
-     */
-    open func capturePictureWithCompletion(_ imageCompletion: @escaping (CaptureResult) -> Void) {
-        capturePictureDataWithCompletion { result in
-            
-            guard let imageData = result.imageData else {
-                if case let .failure(error) = result {
-                    imageCompletion(.failure(error))
-                } else {
-                    imageCompletion(.failure(CaptureError.noImageData))
-                }
-                
-                return
-            }
-            
-            if self.animateShutter {
-                self._performShutterAnimation {
-                    self._capturePicture(imageData, imageCompletion)
-                }
-            } else {
-                self._capturePicture(imageData, imageCompletion)
-            }
-        }
-    }
-    
-    fileprivate func _capturePicture(_ imageData: Data, _ imageCompletion: @escaping (CaptureResult) -> Void) {
-        guard let img = UIImage(data: imageData) else {
-            imageCompletion(.failure(NSError()))
-            return
-        }
-        
-        let image = fixOrientation(withImage: img)
-        let newImageData = _imageDataWithEXIF(forImage: image, imageData)! as Data
-        
-        if writeFilesToPhoneLibrary {
-            let filePath = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("tempImg\(Int(Date().timeIntervalSince1970)).jpg")
-            
-            do {
-                try newImageData.write(to: filePath)
-                
-                // make sure that doesn't fail the first time
-                if PHPhotoLibrary.authorizationStatus() != .authorized {
-                    PHPhotoLibrary.requestAuthorization { status in
-                        if status == PHAuthorizationStatus.authorized {
-                            self._saveImageToLibrary(atFileURL: filePath, imageCompletion)
-                        }
-                    }
-                } else {
-                    _saveImageToLibrary(atFileURL: filePath, imageCompletion)
-                }
-                
-            } catch {
-                imageCompletion(.failure(error))
-                return
-            }
-        }
-        
-        imageCompletion(CaptureResult(newImageData))
-    }
-    
     fileprivate func _setVideoWithGPS(forLocation location: CLLocation) {
         let metadata = AVMutableMetadataItem()
         metadata.keySpace = AVMetadataKeySpace.quickTimeMetadata
@@ -675,9 +596,9 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, UIGest
     /**
      Captures still image from currently running capture session.
      
-     :param: imageCompletion Completion block containing the captured imageData
      */
-    open func capturePictureDataWithCompletion(_ imageCompletion: @escaping (CaptureResult) -> Void) {
+    open func capturePicture (_ imageCompletion: @escaping (CaptureResult) -> Void) {
+      _imageCompletion = imageCompletion
         guard cameraIsSetup else {
             _show(NSLocalizedString("No capture session setup", comment: ""), message: NSLocalizedString("I can't take any picture", comment: ""))
             return
@@ -690,7 +611,7 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, UIGest
         
         _updateIlluminationMode(flashMode)
         
-        sessionQueue.async {
+        sessionQueue.async { [self] in
             let stillImageOutput = self._getStillImageOutput()
             if let connection = stillImageOutput.connection(with: AVMediaType.video),
                 connection.isEnabled {
@@ -723,6 +644,38 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, UIGest
             }
         }
     }
+  
+  public func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: (any Error)?) {
+    if let error {
+      self._show(NSLocalizedString("Error", comment: ""), message: error.localizedDescription)
+      _imageCompletion?(.failure(error))
+      return
+    }
+
+    if let cgImageRepresentation = photo.cgImageRepresentation(),
+       let orientationInt = photo.metadata[String(kCGImagePropertyOrientation)] as? Int,
+       let imageOrientation = UIImage.Orientation(rawValue: orientationInt)
+    {
+      let image = UIImage(cgImage: cgImageRepresentation,
+                          scale: 1,
+                          orientation: imageOrientation)
+      let fixedImage = fixOrientation(withImage: image)
+      _imageCompletion?(CaptureResult(fixedImage))
+      
+      if writeFilesToPhoneLibrary {
+        // make sure that doesn't fail the first time
+        if PHPhotoLibrary.authorizationStatus() != .authorized {
+          PHPhotoLibrary.requestAuthorization { status in
+            if status == PHAuthorizationStatus.authorized {
+              self._saveImageToLibrary(image: fixedImage)
+            }
+          }
+        } else {
+          _saveImageToLibrary(image: fixedImage)
+        }
+      }
+    }
+  }
     
     fileprivate func _imageOrientation(forDeviceOrientation deviceOrientation: UIDeviceOrientation, isMirrored: Bool) -> UIImage.Orientation {
         switch deviceOrientation {
@@ -1283,12 +1236,12 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, UIGest
         }
     }
 
-    fileprivate func _getStillImageOutput() -> AVCaptureStillImageOutput {
+    fileprivate func _getStillImageOutput() -> AVCapturePhotoOutput {
         if let stillImageOutput = stillImageOutput, let connection = stillImageOutput.connection(with: AVMediaType.video),
             connection.isActive {
             return stillImageOutput
         }
-        let newStillImageOutput = AVCaptureStillImageOutput()
+        let newStillImageOutput = AVCapturePhotoOutput()
         stillImageOutput = newStillImageOutput
         if let captureSession = captureSession,
             captureSession.canAddOutput(newStillImageOutput) {
@@ -1620,7 +1573,7 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, UIGest
     
     fileprivate func _setupOutputs() {
         if stillImageOutput == nil {
-            stillImageOutput = AVCaptureStillImageOutput()
+            stillImageOutput = AVCapturePhotoOutput()
         }
         if movieOutput == nil {
             movieOutput = _getMovieOutput()
