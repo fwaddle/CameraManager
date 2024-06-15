@@ -90,6 +90,10 @@ class ViewController: UIViewController {
         qualityLabel.isUserInteractionEnabled = true
         let qualityGesture = UITapGestureRecognizer(target: self, action: #selector(changeCameraQuality))
         qualityLabel.addGestureRecognizer(qualityGesture)
+      
+        cameraButton.isSelected = false
+        cameraButton.backgroundColor = lightBlue
+        outputImageView.image = UIImage(named: "output_image")
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -125,7 +129,7 @@ class ViewController: UIViewController {
     
     
     fileprivate func addCameraToView() {
-        cameraManager.addPreviewLayerToView(cameraView, newCameraOutputMode: CameraOutputMode.videoWithMic)
+        cameraManager.addPreviewLayerToView(cameraView, newCameraOutputMode: CameraOutputMode.stillImage)
         cameraManager.showErrorBlock = { [weak self] (erTitle: String, erMessage: String) -> Void in
             
             let alertController = UIAlertController(title: erTitle, message: erMessage, preferredStyle: .alert)
@@ -148,42 +152,41 @@ class ViewController: UIViewController {
         }
     }
     
-    @IBAction func recordButtonTapped(_ sender: UIButton) {
-        switch cameraManager.cameraOutputMode {
-            case .stillImage:
-                cameraManager.capturePictureWithCompletion { result in
-                    switch result {
-                        case .failure:
-                            self.cameraManager.showErrorBlock("Error occurred", "Cannot save picture.")
-                        case .success(let content):
-                            
-                            let vc: ImageViewController? = self.storyboard?.instantiateViewController(withIdentifier: "ImageVC") as? ImageViewController
-                            if let validVC: ImageViewController = vc,
-                                case let capturedData = content.asData {
-                                print(capturedData!.printExifData())
-                                let capturedImage = UIImage(data: capturedData!)!
-                                validVC.image = capturedImage
-                                validVC.cameraManager = self.cameraManager
-                                self.navigationController?.pushViewController(validVC, animated: true)
-                            }
-                    }
-                }
-            case .videoWithMic, .videoOnly:
-                cameraButton.isSelected = !cameraButton.isSelected
-                cameraButton.setTitle("", for: UIControl.State.selected)
-                
-                cameraButton.backgroundColor = cameraButton.isSelected ? redColor : lightBlue
-                if sender.isSelected {
-                    cameraManager.startRecordingVideo()
-                } else {
-                    cameraManager.stopVideoRecording { (_, error) -> Void in
-                        if error != nil {
-                            self.cameraManager.showErrorBlock("Error occurred", "Cannot save video.")
-                        }
-                    }
-                }
+  @IBAction func recordButtonTapped(_ sender: UIButton) {
+    switch cameraManager.cameraOutputMode {
+    case .stillImage:
+      cameraManager.capturePicture() { result in
+        switch result {
+        case .failure:
+          self.cameraManager.showErrorBlock("Error occurred", "Cannot save picture.")
+        case .success(let content):
+          let vc: ImageViewController? = self.storyboard?.instantiateViewController(withIdentifier: "ImageVC") as? ImageViewController
+          if let validVC: ImageViewController = vc,
+             case let capturedData = content.asData {
+            print(capturedData!.printExifData())
+            let capturedImage = UIImage(data: capturedData!)!
+            validVC.image = capturedImage
+            validVC.cameraManager = self.cameraManager
+            self.navigationController?.pushViewController(validVC, animated: true)
+          }
         }
+      }
+    case .videoWithMic, .videoOnly:
+      cameraButton.isSelected = !cameraButton.isSelected
+      cameraButton.setTitle("", for: UIControl.State.selected)
+      
+      cameraButton.backgroundColor = cameraButton.isSelected ? redColor : lightBlue
+      if sender.isSelected {
+        cameraManager.startRecordingVideo()
+      } else {
+        cameraManager.stopVideoRecording { (_, error) -> Void in
+          if error != nil {
+            self.cameraManager.showErrorBlock("Error occurred", "Cannot save video.")
+          }
+        }
+      }
     }
+  }
     
     @IBAction func locateMeButtonTapped(_ sender: Any) {
         cameraManager.shouldUseLocationServices = true
