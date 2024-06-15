@@ -110,14 +110,8 @@ public enum CaptureError: Error {
 /// Class for handling iDevices custom camera usage
 open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapturePhotoCaptureDelegate, UIGestureRecognizerDelegate {
     // MARK: - Public properties
-    
-    // Property for custom image album name.
-    open var imageAlbumName: String?
-    
-    // Property for custom image album name.
-    open var videoAlbumName: String?
-    
-    /// Property for capture session to customize camera settings.
+
+  /// Property for capture session to customize camera settings.
     open var captureSession: AVCaptureSession?
     
     /**
@@ -333,7 +327,7 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
         
         return .off
     }
-    
+
     // MARK: - Private properties
     
     fileprivate var locationManager: CameraLocationManager?
@@ -596,23 +590,14 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
                 if connection.isVideoOrientationSupported {
                     connection.videoOrientation = self._currentCaptureVideoOrientation()
                 }
-                
-                stillImageOutput.captureStillImageAsynchronously(from: connection, completionHandler: { [weak self] sample, error in
-                    
-                    if let error = error {
-                        self?._show(NSLocalizedString("Error", comment: ""), message: error.localizedDescription)
-                        imageCompletion(.failure(error))
-                        return
-                    }
-                    
-                    guard let sample = sample else { imageCompletion(.failure(CaptureError.noSampleBuffer)); return }
-                    if let imageData = AVCaptureStillImageOutput.jpegStillImageNSDataRepresentation(sample) {
-                        imageCompletion(CaptureResult(imageData))
-                    } else {
-                        imageCompletion(.failure(CaptureError.noImageData))
-                    }
-                    
-                })
+              
+              let photoSettings = AVCapturePhotoSettings()
+              if let avFlashMode = AVCaptureDevice.FlashMode(rawValue: flashMode.rawValue) {
+                if stillImageOutput.supportedFlashModes .contains(avFlashMode) {
+                  photoSettings.flashMode = avFlashMode
+                }
+              }
+                stillImageOutput.capturePhoto(with: photoSettings, delegate: self)
             } else {
                 imageCompletion(.failure(CaptureError.noVideoConnection))
             }
@@ -835,12 +820,13 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
     }
     
     fileprivate func _saveVideoToLibrary(_ fileURL: URL) {
-        let location = locationManager?.latestLocation
-        let date = Date()
-        
-        library?.save(videoAtURL: fileURL, albumName: videoAlbumName, date: date, location: location, completion: { _ in
-            self._executeVideoCompletionWithURL(fileURL, error: nil)
-        })
+      PHPhotoLibrary.shared().performChanges({
+                  PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: fileURL)
+      }) { saved, error in
+        if let error {
+          NSLog("Error saving video to library: \(error)")
+        }
+      }
     }
     
     // MARK: - UIGestureRecognizerDelegate
@@ -1863,165 +1849,6 @@ private extension AVCaptureDevice {
     }
 }
 
-extension PHPhotoLibrary {
-    // MARK: - Public
-    
-    // finds or creates an album
-    
-    func getAlbum(name: String, completion: @escaping (PHAssetCollection) -> Void) {
-        if let album = findAlbum(name: name) {
-            completion(album)
-        } else {
-            createAlbum(name: name, completion: completion)
-        }
-    }
-    
-    func save(imageAtURL: URL, albumName: String?, date: Date = Date(), location: CLLocation? = nil, completion: ((PHAsset?) -> Void)? = nil) {
-        func save() {
-            if let albumName = albumName {
-                getAlbum(name: albumName) { album in
-                    self.saveImage(imageAtURL: imageAtURL, album: album, date: date, location: location, completion: completion)
-                }
-            } else {
-                saveImage(imageAtURL: imageAtURL, album: nil, date: date, location: location, completion: completion)
-            }
-        }
-        
-        if PHPhotoLibrary.authorizationStatus() == .authorized {
-            save()
-        } else {
-            PHPhotoLibrary.requestAuthorization { status in
-                if status == .authorized {
-                    save()
-                }
-            }
-        }
-    }
-    
-    func save(videoAtURL: URL, albumName: String?, date: Date = Date(), location: CLLocation? = nil, completion: ((PHAsset?) -> Void)? = nil) {
-        func save() {
-            if let albumName = albumName {
-                getAlbum(name: albumName) { album in
-                    self.saveVideo(videoAtURL: videoAtURL, album: album, date: date, location: location, completion: completion)
-                }
-            } else {
-                saveVideo(videoAtURL: videoAtURL, album: nil, date: date, location: location, completion: completion)
-            }
-        }
-        
-        if PHPhotoLibrary.authorizationStatus() == .authorized {
-            save()
-        } else {
-            PHPhotoLibrary.requestAuthorization { status in
-                if status == .authorized {
-                    save()
-                }
-            }
-        }
-    }
-    
-    // MARK: - Private
-    
-    fileprivate func findAlbum(name: String) -> PHAssetCollection? {
-        let fetchOptions = PHFetchOptions()
-        fetchOptions.predicate = NSPredicate(format: "title = %@", name)
-        let fetchResult: PHFetchResult = PHAssetCollection.fetchAssetCollections(with: .album, subtype: .any, options: fetchOptions)
-        guard let photoAlbum = fetchResult.firstObject else {
-            return nil
-        }
-        return photoAlbum
-    }
-    
-    fileprivate func createAlbum(name: String, completion: @escaping (PHAssetCollection) -> Void) {
-        var placeholder: PHObjectPlaceholder?
-        
-        performChanges({
-            let createAlbumRequest = PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: name)
-            placeholder = createAlbumRequest.placeholderForCreatedAssetCollection
-        }, completionHandler: { _, _ in
-            let fetchResult = PHAssetCollection.fetchAssetCollections(withLocalIdentifiers: [placeholder!.localIdentifier], options: nil)
-            completion(fetchResult.firstObject!)
-        })
-    }
-    
-    fileprivate func saveImage(imageAtURL: URL, album: PHAssetCollection?, date: Date = Date(), location: CLLocation? = nil, completion: ((PHAsset?) -> Void)? = nil) {
-        var placeholder: PHObjectPlaceholder?
-        performChanges({
-            let createAssetRequest = PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: imageAtURL)!
-            createAssetRequest.creationDate = date
-            createAssetRequest.location = location
-            if let album = album {
-                guard let albumChangeRequest = PHAssetCollectionChangeRequest(for: album),
-                    let photoPlaceholder = createAssetRequest.placeholderForCreatedAsset else { return }
-                placeholder = photoPlaceholder
-                let fastEnumeration = NSArray(array: [photoPlaceholder] as [PHObjectPlaceholder])
-                albumChangeRequest.addAssets(fastEnumeration)
-            }
-            
-        }, completionHandler: { success, _ in
-            guard let placeholder = placeholder else {
-                return
-            }
-            if success {
-                let assets: PHFetchResult<PHAsset> = PHAsset.fetchAssets(withLocalIdentifiers: [placeholder.localIdentifier], options: nil)
-                let asset: PHAsset? = assets.firstObject
-                completion?(asset)
-            }
-        })
-    }
-    
-    fileprivate func saveVideo(videoAtURL: URL, album: PHAssetCollection?, date: Date = Date(), location: CLLocation? = nil, completion: ((PHAsset?) -> Void)? = nil) {
-        var placeholder: PHObjectPlaceholder?
-        performChanges({
-            let createAssetRequest = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: videoAtURL)!
-            createAssetRequest.creationDate = date
-            createAssetRequest.location = location
-            if let album = album {
-                guard let albumChangeRequest = PHAssetCollectionChangeRequest(for: album),
-                    let photoPlaceholder = createAssetRequest.placeholderForCreatedAsset else { return }
-                placeholder = photoPlaceholder
-                let fastEnumeration = NSArray(array: [photoPlaceholder] as [PHObjectPlaceholder])
-                albumChangeRequest.addAssets(fastEnumeration)
-            }
-            
-        }, completionHandler: { success, _ in
-            guard let placeholder = placeholder else {
-                completion?(nil)
-                return
-            }
-            if success {
-                let assets: PHFetchResult<PHAsset> = PHAsset.fetchAssets(withLocalIdentifiers: [placeholder.localIdentifier], options: nil)
-                let asset: PHAsset? = assets.firstObject
-                completion?(asset)
-            } else {
-                completion?(nil)
-            }
-        })
-    }
-    
-    fileprivate func saveImage(image: UIImage, album: PHAssetCollection, completion: ((PHAsset?) -> Void)? = nil) {
-        var placeholder: PHObjectPlaceholder?
-        performChanges({
-            let createAssetRequest = PHAssetChangeRequest.creationRequestForAsset(from: image)
-            createAssetRequest.creationDate = Date()
-            guard let albumChangeRequest = PHAssetCollectionChangeRequest(for: album),
-                let photoPlaceholder = createAssetRequest.placeholderForCreatedAsset else { return }
-            placeholder = photoPlaceholder
-            let fastEnumeration = NSArray(array: [photoPlaceholder] as [PHObjectPlaceholder])
-            albumChangeRequest.addAssets(fastEnumeration)
-        }, completionHandler: { success, _ in
-            guard let placeholder = placeholder else {
-                completion?(nil)
-                return
-            }
-            if success {
-                let assets: PHFetchResult<PHAsset> = PHAsset.fetchAssets(withLocalIdentifiers: [placeholder.localIdentifier], options: nil)
-                let asset: PHAsset? = assets.firstObject
-                completion?(asset)
-            } else {
-                completion?(nil)
-            }
-        })
     }
 }
 
