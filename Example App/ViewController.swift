@@ -206,7 +206,7 @@ class ViewController: UIViewController {
     }
     
     @IBAction func changeCameraDevice() {
-        cameraManager.cameraDevice = cameraManager.cameraDevice == CameraDevice.front ? CameraDevice.back : CameraDevice.front
+        cameraManager.cameraDevice = cameraManager.cameraDevice == .front ? .back : .front
     }
     
     @IBAction func askForCameraPermissions() {
