@@ -151,6 +151,12 @@ class ViewController: UIViewController {
                 flashModeImageView.image = UIImage(named: "flash_auto")
         }
     }
+  
+  override func viewWillTransition(to size: CGSize, with coordinator: any UIViewControllerTransitionCoordinator) {
+    coordinator.animate { [self] _ in
+      cameraManager.resetOrientation()
+    }
+  }
     
   @IBAction func recordButtonTapped(_ sender: UIButton) {
     switch cameraManager.cameraOutputMode {
