@@ -2,6 +2,19 @@
 
 [![CocoaPods](https://img.shields.io/cocoapods/v/CameraManager.svg)](https://github.com/imaginary-cloud/CameraManager) [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
 
+This is a forked and modified version of the original [CameraManager](https://github.com/imaginary-cloud/CameraManager).
+The main changes that have been made are:
+- Min iOS version is now 12.0
+- Removed all deprecation warnings and use new API's
+- Removed ability to specify custom album names when saving to the users library. 
+    - This required lots of extra code and extra permissions from users, which I wanted to avoid.
+- Changed the way image orientation is corrected - especially on the front facing camera
+    - I think that what you see when you take a photo is what should be saved and not mirrored as seems to be common.
+- Flash handling is a bit different now to make it compatible with new API's. This is not well tested yet.
+
+If you want to use this version, just know that I am currently prioritising photo taking so if some of the video features are not working, then please let me know. 
+
+## Original blurb from Imaginary-Cloud
 This is a simple Swift class to provide all the configurations you need to create custom camera view in your app.
 It follows orientation change and updates UI accordingly, supports front and rear camera selection, pinch to zoom, tap to focus, exposure slider, different flash modes, inputs and outputs and QRCode detection.
 Just drag, drop and use.
@@ -187,13 +200,6 @@ You can specify if you want to save the files to phone library. `(Default: true)
 cameraManager.writeFilesToPhoneLibrary = true || false
 ```
 
-You can specify the album names for image and video recordings.
-
-```swift
-cameraManager.imageAlbumName =  "Image Album Name"
-cameraManager.videoAlbumName =  "Video Album Name"
-```
-
 You can specify if you want to disable animations. `(Default: true)`
 
 ```swift
@@ -256,7 +262,7 @@ and don't forget to call `cameraManager.stopQRCodeDetection()` whenever you done
 
 ## Support
 
-Supports iOS 9 and above. Xcode 11.4 is required to build the latest code written in Swift 5.2.
+Supports iOS 12 and above. Xcode 11.4 is required to build the latest code written in Swift 5.2.
 
 Now it's compatible with latest Swift syntax, so if you're using any Swift version prior to 5 make sure to use one of the previously tagged releases:
 
