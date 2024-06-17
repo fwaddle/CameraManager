@@ -23,15 +23,6 @@ class ImageViewController: UIViewController {
         }
 
         imageView.image = validImage
-
-        if cameraManager?.cameraDevice == .front {
-            switch validImage.imageOrientation {
-            case .up, .down:
-                imageView.transform = CGAffineTransform(rotationAngle: CGFloat(Double.pi))
-            default:
-                break
-            }
-        }
     }
 
     override func didReceiveMemoryWarning() {
