@@ -636,19 +636,6 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
     }
   }
     
-    fileprivate func _imageOrientation(forDeviceOrientation deviceOrientation: UIDeviceOrientation, isMirrored: Bool) -> UIImage.Orientation {
-        switch deviceOrientation {
-            case .landscapeLeft:
-                return isMirrored ? .upMirrored : .up
-            case .landscapeRight:
-                return isMirrored ? .downMirrored : .down
-            default:
-                break
-        }
-        
-        return isMirrored ? .leftMirrored : .right
-    }
-    
     /**
      Starts recording a video with or without voice as in the session preset.
      */
@@ -1344,23 +1331,39 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
     
     fileprivate func fixOrientation(withImage image: UIImage) -> UIImage {
         guard let cgImage = image.cgImage else { return image }
-        
-        var isMirrored = false
-        let orientation = image.imageOrientation
-        if orientation == .rightMirrored
-            || orientation == .leftMirrored
-            || orientation == .upMirrored
-            || orientation == .downMirrored {
-            isMirrored = true
-        }
-        
-        let newOrientation = _imageOrientation(forDeviceOrientation: deviceOrientation, isMirrored: isMirrored)
-        
-        if image.imageOrientation != newOrientation {
-            return UIImage(cgImage: cgImage, scale: image.scale, orientation: newOrientation)
-        }
-        
-        return image
+
+      if cameraDevice == .front {
+        let imageOrientation:UIImage.Orientation =
+          switch deviceOrientation {
+          case .portrait:
+              .leftMirrored
+          case .landscapeLeft:
+              .downMirrored
+          case .landscapeRight:
+              .upMirrored
+          case .portraitUpsideDown:
+              .rightMirrored
+          default:
+              .upMirrored
+          }
+        return UIImage(cgImage: cgImage, scale: image.scale, orientation: imageOrientation)
+      }
+      else {
+        let imageOrientation:UIImage.Orientation =
+          switch deviceOrientation {
+          case .portrait:
+              .right
+          case .landscapeLeft:
+              .up
+          case .landscapeRight:
+              .down
+          case .portraitUpsideDown:
+              .left
+          default:
+              .upMirrored
+          }
+        return UIImage(cgImage: cgImage, scale: image.scale, orientation: imageOrientation)
+      }
     }
     
     fileprivate func _canLoadCamera() -> Bool {
