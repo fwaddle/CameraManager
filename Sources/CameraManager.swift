@@ -125,13 +125,17 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
     
     /// A block creating UI to present error message to the user. This can be customised to be presented on the Window root view controller, or to pass in the viewController which will present the UIAlertController, for example.
     open var showErrorBlock: (_ erTitle: String, _ erMessage: String) -> Void = { (erTitle: String, erMessage: String) -> Void in
+      var alertController = UIAlertController(title: erTitle, message: erMessage, preferredStyle: .alert)
+      alertController.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: { (_) -> Void in }))
         
-        var alertController = UIAlertController(title: erTitle, message: erMessage, preferredStyle: .alert)
-        alertController.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: { (_) -> Void in }))
-        
-        if let topController = UIApplication.shared.keyWindow?.rootViewController {
-            topController.present(alertController, animated: true, completion: nil)
-        }
+      // Iterate through all the presented view controllers to find the actual top presented one.
+      var topVC = UIApplication.shared.keyWindow?.rootViewController
+      while (topVC?.presentedViewController != nil) {
+        topVC = topVC?.presentedViewController
+      }
+      if let topVC {
+        topVC.present(alertController, animated: true)
+      }
     }
     
     open func canSetPreset(preset: AVCaptureSession.Preset) -> Bool? {
