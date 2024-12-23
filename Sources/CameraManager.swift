@@ -91,7 +91,7 @@ extension CaptureContent {
         let options = PHImageRequestOptions()
         options.version = .original
         options.isSynchronous = true
-        manager.requestImageData(for: asset, options: options) { data, _, _, _ in
+        manager.requestImageDataAndOrientation(for: asset, options: options) { data, _, _, _ in
             
             imageData = data
         }
@@ -129,7 +129,7 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
       alertController.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: { (_) -> Void in }))
         
       // Iterate through all the presented view controllers to find the actual top presented one.
-      var topVC = UIApplication.shared.keyWindow?.rootViewController
+      var topVC = UIApplication.shared.windows.filter {$0.isKeyWindow}.first?.rootViewController
       while (topVC?.presentedViewController != nil) {
         topVC = topVC?.presentedViewController
       }
@@ -1308,7 +1308,7 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
         var orientation: UIInterfaceOrientation?
         
         DispatchQueue.main.async {
-            orientation = UIApplication.shared.statusBarOrientation
+          orientation = UIApplication.shared.windows.filter {$0.isKeyWindow}.first?.windowScene?.interfaceOrientation
         }
         
         /*
