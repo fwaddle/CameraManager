@@ -161,6 +161,10 @@ class ViewController: UIViewController {
   @IBAction func recordButtonTapped(_ sender: UIButton) {
     switch cameraManager.cameraOutputMode {
     case .stillImage:
+      if (!cameraManager.cameraIsReady) {
+        return
+      }
+    
       cameraManager.capturePicture() { result in
         switch result {
         case .failure:
