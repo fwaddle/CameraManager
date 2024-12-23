@@ -599,6 +599,11 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
                 }
               
               let photoSettings = AVCapturePhotoSettings()
+              let previewPixelType = photoSettings.availablePreviewPhotoPixelFormatTypes.first!
+              let previewFormat = [kCVPixelBufferPixelFormatTypeKey as String: previewPixelType,
+                                             kCVPixelBufferWidthKey as String: 160,
+                                            kCVPixelBufferHeightKey as String: 160]
+              photoSettings.previewPhotoFormat = previewFormat
               if let avFlashMode = AVCaptureDevice.FlashMode(rawValue: flashMode.rawValue) {
                 if stillImageOutput.supportedFlashModes .contains(avFlashMode) {
                   photoSettings.flashMode = avFlashMode
