@@ -346,7 +346,10 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
     }()
     
     fileprivate lazy var backCameraDevice: AVCaptureDevice? = {
-        AVCaptureDevice.videoDevices.filter { $0.position == .back }.first
+      let devices = AVCaptureDevice.videoDevices.filter { $0.position == .back }
+      return devices.first { d in
+                             d.deviceType == .builtInTripleCamera
+                           } ?? devices.first
     }()
     
     fileprivate lazy var mic: AVCaptureDevice? = {
@@ -1852,11 +1855,17 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
 
 private extension AVCaptureDevice {
     static var videoDevices: [AVCaptureDevice] {
-      let captureSession = AVCaptureDevice.DiscoverySession (deviceTypes: [.builtInWideAngleCamera],
-                                                             mediaType: AVMediaType.video,
-                                                             position: .unspecified)
-      return captureSession.devices
-    }
+      let deviceTypes: [AVCaptureDevice.DeviceType]
+      deviceTypes = [.builtInTripleCamera, .builtInDualWideCamera, .builtInDualCamera, .builtInWideAngleCamera]
+
+      let session = AVCaptureDevice.DiscoverySession(
+          deviceTypes: deviceTypes,
+          mediaType: .video,
+          position: .unspecified
+      )
+
+      return session.devices
+   }
 }
 
 extension CameraManager: AVCaptureMetadataOutputObjectsDelegate {
