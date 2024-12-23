@@ -4,7 +4,7 @@
 
 This is a forked and modified version of the original [CameraManager](https://github.com/imaginary-cloud/CameraManager).
 The main changes that have been made are:
-- Min iOS version is now 12.0
+- Min iOS version is now 13.0
 - Removed all deprecation warnings and use new API's
 - Removed ability to specify custom album names when saving to the users library. 
     - This required lots of extra code and extra permissions from users, which I wanted to avoid.
