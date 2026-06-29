@@ -109,6 +109,18 @@ public enum CaptureError: Error {
 
 /// Class for handling iDevices custom camera usage
 open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapturePhotoCaptureDelegate, UIGestureRecognizerDelegate {
+
+    /// The current key window. Replaces the deprecated (iOS 15+)
+    /// `UIApplication.shared.windows`, which only saw the first connected
+    /// scene's windows. `static` so it's usable from default property values
+    /// (which have no `self`) as well as instance methods.
+    fileprivate static var keyWindow: UIWindow? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }
+    }
+
     // MARK: - Public properties
 
   /// Property for capture session to customize camera settings.
@@ -129,7 +141,7 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
       alertController.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: { (_) -> Void in }))
         
       // Iterate through all the presented view controllers to find the actual top presented one.
-      var topVC = UIApplication.shared.windows.filter {$0.isKeyWindow}.first?.rootViewController
+      var topVC = CameraManager.keyWindow?.rootViewController
       while (topVC?.presentedViewController != nil) {
         topVC = topVC?.presentedViewController
       }
@@ -1343,17 +1355,15 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
     }
     
     fileprivate func _videoOrientationFromStatusBarOrientation() -> AVCaptureVideoOrientation {
-        var orientation: UIInterfaceOrientation?
-        
-        DispatchQueue.main.async {
-          orientation = UIApplication.shared.windows.filter {$0.isKeyWindow}.first?.windowScene?.interfaceOrientation
-        }
-        
-        /*
-         Note - the following would fall into the guard every other call (it is called repeatedly) if the device was
-         landscape then face up/down.  Did not seem to fail if in portrait first.
-         */
-        guard let statusBarOrientation = orientation else {
+        // `interfaceOrientation` must be read on the main thread, but this
+        // function is also called from the session queue (e.g. capturePicture)
+        // and the Core Motion queue, so read it synchronously on main and use
+        // the result inline. (Previously this used `DispatchQueue.main.async`,
+        // so the value was read *after* the guard below and was always nil —
+        // making this fall back to `.portrait` on every call.)
+        guard let statusBarOrientation = onMainThreadSync({
+            CameraManager.keyWindow?.windowScene?.interfaceOrientation
+        }) else {
             return .portrait
         }
         
