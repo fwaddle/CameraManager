@@ -1225,18 +1225,25 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
         }
         
         if let validPreviewLayer = previewLayer {
-            if !shouldKeepViewAtOrientationChanges {
-                if let validPreviewLayerConnection = validPreviewLayer.connection,
-                    validPreviewLayerConnection.isVideoOrientationSupported {
-                    validPreviewLayerConnection.videoOrientation = _currentPreviewVideoOrientation()
+            // _orientationChanged() can be called from the Core Motion background
+            // queue (see _startFollowingDeviceOrientation). Mutating the preview
+            // layer's connection / frame triggers an implicit CATransaction and a
+            // layout pass; doing that off the main thread crashes with
+            // "Modifications to the layout engine must not be performed from a
+            // background thread after it has been accessed from the main thread."
+            // Marshal all preview-layer mutations onto the main thread.
+            onMainThread {
+                if !self.shouldKeepViewAtOrientationChanges {
+                    if let validPreviewLayerConnection = validPreviewLayer.connection,
+                        validPreviewLayerConnection.isVideoOrientationSupported {
+                        validPreviewLayerConnection.videoOrientation = self._currentPreviewVideoOrientation()
+                    }
                 }
-            }
-            if let validOutputLayerConnection = currentConnection,
-                validOutputLayerConnection.isVideoOrientationSupported {
-                validOutputLayerConnection.videoOrientation = _currentCaptureVideoOrientation()
-            }
-            if !shouldKeepViewAtOrientationChanges && cameraIsObservingDeviceOrientation {
-                DispatchQueue.main.async { () -> Void in
+                if let validOutputLayerConnection = currentConnection,
+                    validOutputLayerConnection.isVideoOrientationSupported {
+                    validOutputLayerConnection.videoOrientation = self._currentCaptureVideoOrientation()
+                }
+                if !self.shouldKeepViewAtOrientationChanges && self.cameraIsObservingDeviceOrientation {
                     if let validEmbeddingView = self.embeddingView {
                         validPreviewLayer.frame = validEmbeddingView.bounds
                     }
@@ -1244,7 +1251,30 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
             }
         }
     }
-    
+
+    /// Runs `block` on the main thread, synchronously if already there
+    /// (preserves ordering for main-thread callers), otherwise asynchronously.
+    fileprivate func onMainThread(_ block: @escaping () -> Void) {
+        if Thread.isMainThread {
+            block()
+        } else {
+            DispatchQueue.main.async(execute: block)
+        }
+    }
+
+    /// Synchronously evaluates `block` on the main thread and returns its result.
+    /// For main-thread-only *reads* (e.g. `UIWindowScene.interfaceOrientation`)
+    /// whose value is needed inline. Safe against deadlock: the main thread never
+    /// blocks waiting on the queues this is called from (sessionQueue / Core
+    /// Motion), and the `isMainThread` fast path avoids a self-`sync`.
+    fileprivate func onMainThreadSync<T>(_ block: () -> T) -> T {
+        if Thread.isMainThread {
+            return block()
+        } else {
+            return DispatchQueue.main.sync(execute: block)
+        }
+    }
+
     fileprivate func _currentCaptureVideoOrientation() -> AVCaptureVideoOrientation {
         if deviceOrientation == .faceDown
             || deviceOrientation == .faceUp
