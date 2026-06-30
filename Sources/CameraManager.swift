@@ -1387,15 +1387,18 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
 
       if cameraDevice == .front {
         let imageOrientation:UIImage.Orientation =
+          // Each case is the 180°-partner of the original mapping: the whole
+          // front-camera table was rotated 180° (selfies came out upside down).
+          // These four now form a consistent 90° rotation cycle.
           switch deviceOrientation {
           case .portrait:
-              .leftMirrored
+              .rightMirrored   // was .leftMirrored
           case .landscapeLeft:
-              .upMirrored      // was .downMirrored — 180° off, selfies came out upside down
+              .upMirrored      // was .downMirrored
           case .landscapeRight:
-              .downMirrored    // was .upMirrored  — swapped to match (landscapeLeft/Right are 180° apart)
+              .downMirrored    // was .upMirrored
           case .portraitUpsideDown:
-              .rightMirrored
+              .leftMirrored    // was .rightMirrored
           default:
               .upMirrored
           }
