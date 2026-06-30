@@ -1274,6 +1274,19 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
         }
     }
 
+    /// Synchronously evaluates `block` on the main thread and returns its result.
+    /// For main-thread-only *reads* (e.g. `UIWindowScene.interfaceOrientation`)
+    /// whose value is needed inline. Safe against deadlock: the main thread never
+    /// blocks waiting on the queues this is called from (sessionQueue / Core
+    /// Motion), and the `isMainThread` fast path avoids a self-`sync`.
+    fileprivate func onMainThreadSync<T>(_ block: () -> T) -> T {
+        if Thread.isMainThread {
+            return block()
+        } else {
+            return DispatchQueue.main.sync(execute: block)
+        }
+    }
+
     fileprivate func _currentCaptureVideoOrientation() -> AVCaptureVideoOrientation {
         if deviceOrientation == .faceDown
             || deviceOrientation == .faceUp
@@ -1342,19 +1355,16 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
     }
     
     fileprivate func _videoOrientationFromStatusBarOrientation() -> AVCaptureVideoOrientation {
-        // NOTE: this deliberately keeps the original (quirky) behaviour where the
-        // interface orientation is fetched on an async hop and therefore read back
-        // as nil here, so the function returns `.portrait`. The capture/preview
-        // orientation handling elsewhere relies on that; "fixing" it to read the
-        // real orientation synchronously regressed front-camera capture (selfies
-        // came out upside down). Left as-is intentionally.
-        var orientation: UIInterfaceOrientation?
-
-        DispatchQueue.main.async {
-          orientation = CameraManager.keyWindow?.windowScene?.interfaceOrientation
-        }
-
-        guard let statusBarOrientation = orientation else {
+        // `interfaceOrientation` must be read on the main thread, but this
+        // function is also called from the session queue (e.g. capturePicture)
+        // and the Core Motion queue, so read it synchronously on main and use
+        // the result inline. (The original used `DispatchQueue.main.async`, so
+        // the value was read *after* the guard below and was always nil — making
+        // this always fall back to `.portrait`, which left front-camera capture
+        // upside down.)
+        guard let statusBarOrientation = onMainThreadSync({
+            CameraManager.keyWindow?.windowScene?.interfaceOrientation
+        }) else {
             return .portrait
         }
 
