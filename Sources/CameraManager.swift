@@ -1391,14 +1391,16 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
           case .portrait:
               .leftMirrored
           case .landscapeLeft:
-              .downMirrored
+              .upMirrored      // was .downMirrored — 180° off, selfies came out upside down
           case .landscapeRight:
-              .upMirrored
+              .downMirrored    // was .upMirrored  — swapped to match (landscapeLeft/Right are 180° apart)
           case .portraitUpsideDown:
               .rightMirrored
           default:
               .upMirrored
           }
+        NSLog("[orient] fixOrientation front device=%ld -> imageOrientation=%ld",
+              deviceOrientation.rawValue, imageOrientation.rawValue)
         return UIImage(cgImage: cgImage, scale: image.scale, orientation: imageOrientation)
       }
       else {
