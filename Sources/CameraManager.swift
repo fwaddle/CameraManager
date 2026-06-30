@@ -1402,8 +1402,6 @@ open class CameraManager: NSObject, AVCaptureFileOutputRecordingDelegate, AVCapt
           default:
               .upMirrored
           }
-        NSLog("[orient] fixOrientation front device=%ld -> imageOrientation=%ld",
-              deviceOrientation.rawValue, imageOrientation.rawValue)
         return UIImage(cgImage: cgImage, scale: image.scale, orientation: imageOrientation)
       }
       else {
